@@ -10,13 +10,13 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath(".."))
-autodoc_mock_imports = ["numpy", "sklearn", "tqdm", "interpret", "matplotlib", 
-                        "statsmodels", "imodels", "torch", "pandas"]
+autodoc_mock_imports = ["numpy", "sklearn", "tqdm", "interpret", "matplotlib",
+                        "statsmodels", "imodels", "torch", "pandas", "sirus"]
 
 project = 'AFISP'
 copyright = '2024, Adarsh Subbaswamy'
 author = 'Adarsh Subbaswamy'
-release = '0.0.1'
+release = '0.2.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

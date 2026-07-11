@@ -1,14 +1,12 @@
 import numpy as np
 from sklearn.base import BaseEstimator
-import subprocess
 from tqdm import tqdm
 from afisp.utils import cohens_d, bootstrap_ci
 from statsmodels.stats.weightstats import ttest_ind
 from imodels.rule_set.skope_rules import SkopeRulesClassifier
 from sklearn.metrics import roc_auc_score, brier_score_loss
-from pathlib import Path
+from sirus import SirusClassifier, sirus_cv
 import pandas as pd
-import os
 
 
 class SubgroupPhenotyper(BaseEstimator):
@@ -23,26 +21,26 @@ class SubgroupPhenotyper(BaseEstimator):
         """
         self.fit_called_ = False
 
-    def fit(self, subgroup_feature_data, subset_labels, test_loss, 
-            method="DecisionList", depth=2, cv=False, rule_max=50, 
-            p0=0.025, input_fname="data_for_sirus.csv", 
-            output_fname="sirus_rules.txt", verbose=0):
+    def fit(self, subgroup_feature_data, subset_labels, test_loss,
+            method="SIRUS", depth=2, cv=False, rule_max=50,
+            p0=0.025, random_state=None, verbose=0):
         """Computes the subgroup phenotypes using an interpretable classifier.
-        The subgroup phenotyper expects categorical features to encoded as
+        The subgroup phenotyper expects categorical features to be encoded as
         binary dummy variables.
 
-        :param subgroup_feature_data: Array containing the subgroup feature
-            data.
+        :param subgroup_feature_data: DataFrame containing the subgroup feature
+            data. All columns must be numeric (encode categorical features as
+            binary dummy variables).
         :param subset_labels: Binary labels for whether each sample is in the
             worst data subset.
         :param test_loss: The observed loss for each sample. Used for filtering
             rules based on statistical significance and effect size.
         :param method: Selects the interpretable classification method used for
             extracting the subgroup phenotypes. "SIRUS" uses the 'Stable and
-            Interpretable RUle Set' method implemented in R. It requires a
-            working R distribution with the 'sirus' package installed. This is
-            recommended. As a python alternative, the "DecisionList" will use
-            the SkopeRules DecisionListClassifier, defaults to "DecisionList'.
+            Interpretable RUle Set' method (the pure-Python ``sirus`` package).
+            This is recommended and is the default. As an alternative, the
+            "DecisionList" method uses the imodels SkopeRulesClassifier. Defaults
+            to "SIRUS".
         :param cv: For method SIRUS, whether or not to use cross-validation to
             select the rule selection threshold. If True, then p0 is ignored.
             Using cross-validation can be very slow, but results are often
@@ -50,13 +48,19 @@ class SubgroupPhenotyper(BaseEstimator):
         :param p0: For method SIRUS, the threshold (between 0 and 1) for rule
             selection. Ignored if cv is True, since cv is used to determine a
             good value for p0. The higher the value of p0, the fewer rules that
-            will be selected. Recommended to choose a value < 0.1, defaults to
-            0.025.
+            will be selected. Recommended to choose a value < 0.1. Pass None (or
+            a non-positive value) to let SIRUS choose the number of rules
+            automatically. Defaults to 0.025.
         :type p0: Float in (0, 1)
         :param rule_max: The max number of rules that SIRUS will consider,
             defaults to 50.
         :type rule_max: int > 0
-        :param depth:
+        :param depth: The maximum number of literals (splits) per rule, defaults
+            to 2.
+        :param random_state: Seed for reproducible SIRUS fits. Note that the
+            Python ``sirus`` package is an independent re-implementation of the
+            R package; a fixed seed makes runs reproducible but does not
+            reproduce the R package's exact rules.
         :return: The candidate rules extracted by the Subgroup Phenotyper
         :rtype: List[string]
         """
@@ -65,41 +69,33 @@ class SubgroupPhenotyper(BaseEstimator):
         self._phenotype_df = phenotype_df
 
         if method == "SIRUS":
-            # need to check that we have R installed with SIRUS package
-            phenotype_df.to_csv(input_fname, index=False)
-            package_path = Path(__file__).parent
-            command = f"Rscript {package_path}/run_sirus.r"
-            command += f" --input {input_fname} --output {output_fname}"
-            command += f" --depth {depth}"
-            command += f" --rule.max {rule_max}"
-            if cv:
-                command += f" --cv"
-            else:
-                command += f" --p0 {p0}"
-            # `cwd`: current directory is straightforward
-            cwd = Path.cwd()
-
-            # `mod_path`: According to the accepted answer and combine with future power
-            # if we are in the `helper_script.py`
+            X = subgroup_feature_data
+            y = np.asarray(subset_labels).astype(int)
+            self._validate_sirus_inputs(subgroup_feature_data, y, cv, p0)
             if verbose > 0:
                 print("Beginning call to SIRUS. If cv == True this may take a long time.")
-            subprocess.call((command), shell=True)
-            # subprocess.call((f"Rscript" 
-            #                  f" afisp/run_sirus.r" 
-            #                  f" --input {df_fname} "
-            #                  f" --output {sirus_rules_fname}"
-            #                  f" --depth {depth}"
-            #                  f" --rule.max {rule_max}"
-            #                  f" --p0 0.027"),
-            # shell=True)
+            if cv:
+                res = sirus_cv(X, y, task="classification",
+                               num_rules_max=rule_max, max_depth=depth,
+                               random_state=random_state, verbose=(verbose > 0))
+                model = SirusClassifier(p0=res.p0_pred, max_depth=depth,
+                                        num_rules_max=rule_max,
+                                        random_state=random_state)
+            elif p0 is None or p0 <= 0:
+                # sentinel: let SIRUS choose the number of rules
+                model = SirusClassifier(max_depth=depth, num_rules_max=rule_max,
+                                        random_state=random_state)
+            else:
+                # Parity with the original R script: its explicit-p0 branch did
+                # not pass num.rule.max, so the historical default (cv=False,
+                # p0=0.025) capped at SIRUS's default (25). Omit num_rules_max
+                # here to preserve that behavior.
+                model = SirusClassifier(p0=p0, max_depth=depth,
+                                        random_state=random_state)
+            model.fit(X, y)
             if verbose > 0:
                 print("Finished call to SIRUS")
-            candidate_rules = self._get_sirus_rules(output_fname)
-            # clean up temporary files
-            if os.path.exists(output_fname):
-                os.remove(output_fname)
-            if os.path.exists(input_fname):
-                os.remove(input_fname)
+            candidate_rules = self._extract_sirus_rules(model)
         elif method == "DecisionList":
             # Add arguments for SkopesRulesClassifier
             if depth == 1:
@@ -180,35 +176,49 @@ class SubgroupPhenotyper(BaseEstimator):
         if "<" in rule:
             return(rule.replace("<", ">="))
 
-    def _get_sirus_rules(self, filename):
+    def _validate_sirus_inputs(self, subgroup_feature_data, y, cv, p0):
+        """Validates the inputs to the SIRUS phenotyping method."""
+        if not isinstance(subgroup_feature_data, pd.DataFrame):
+            raise TypeError("subgroup_feature_data must be a pandas DataFrame "
+                            "for method='SIRUS'.")
+        non_numeric = [c for c in subgroup_feature_data.columns
+                       if not pd.api.types.is_numeric_dtype(subgroup_feature_data[c])]
+        if non_numeric:
+            raise ValueError(
+                "All subgroup_feature_data columns must be numeric for "
+                f"method='SIRUS'; found non-numeric columns {non_numeric}. "
+                "Encode categorical features as binary dummy variables.")
+        n_classes = np.unique(y).size
+        if n_classes != 2:
+            raise ValueError(
+                "subset_labels must contain exactly two classes for "
+                f"method='SIRUS'; found {n_classes}.")
+        if not cv and p0 is not None and p0 >= 1:
+            raise ValueError(f"p0 must be in (0, 1); got {p0}.")
 
-        with open(filename) as f:
-            filelines = [line for line in f]
-        
-        sirus_rules = set()
-        
-        for line in filelines:
-            if " then " not in line:
-                continue
-            # every rule reads as 'if RULE then ...'
-            end = line.index(" then ")
-            rule = line[3:end].strip()
-            if_prob = float(line.split('then')[1].split()[0])
-            else_prob = float(line.split('else')[1].split()[0])
-                
-            if if_prob > else_prob:# can take the rule as is
-                sirus_rules.add(rule)
-            elif '&' in rule: # negate a compound rule
-                # ~(X & Y) = ~X or ~Y
-                # new_rules = []
-                for r in rule.split('&'): 
-                    # new_rules.append(negate_simple_rule(r.strip()))
-                    sirus_rules.add(self._negate_simple_rule(r.strip()))
-                # sirus_rules.add(' | '.join(new_rules))
-            else: # negate a simple rule
-                sirus_rules.add(self._negate_simple_rule(rule))
-
-        return(sirus_rules)
+    def _extract_sirus_rules(self, model):
+        """Converts the rules of a fitted SIRUS model into pandas-eval rule
+        strings, orienting each rule toward the worst subset (mirrors the
+        orientation/negation logic of the former R text parser).
+        """
+        rules = {}  # ordered dedup (model.rules_ is frequency-sorted)
+        for r in model.rules_:
+            for c in r.conditions:
+                if c.op == "in":
+                    # categorical -> not a valid pandas-eval expression
+                    raise ValueError(
+                        "SIRUS produced a categorical condition; encode "
+                        "categorical features as numeric dummy variables "
+                        "before phenotyping.")
+            rule_str = " & ".join(str(c) for c in r.conditions)
+            if r.output_in > r.output_out:  # rule already points at the worst subset
+                rules[rule_str] = None
+            elif len(r.conditions) > 1:  # negate a compound rule: ~(X & Y) = ~X or ~Y
+                for c in r.conditions:
+                    rules[self._negate_simple_rule(str(c))] = None
+            else:  # negate a simple rule
+                rules[self._negate_simple_rule(rule_str)] = None
+        return list(rules)
     
     def _precompute_p_values(self, sirus_rules, phenotype_df, test_loss, alpha=0.05):
         # precompute p_values

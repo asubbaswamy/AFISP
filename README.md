@@ -6,25 +6,26 @@ Full documentation can be viewed at [https://afisp.readthedocs.io/](https://afis
 
 # Installation
 
-The code uses the R and python programming languages. To install an environment with code-compatible versions of these languages, first run
+AFISP is a pure-Python package (Python 3.10+). Its rule-extraction step uses the
+pure-Python [`sirus`](https://github.com/asubbaswamy/sirus-py) package, so **no R
+installation is required**. Install it with pip:
 
 ```
-conda env create -f environment.yml
+pip install afisp
 ```
 
-Activate the new conda environment by running
+To install the latest version from source (e.g. for development):
 
 ```
-conda activate afisp
+git clone https://github.com/asubbaswamy/AFISP.git
+cd AFISP
+pip install -e ".[test]"
 ```
 
-Then, to install the requisite R packages, run
+The optional `torch` extra (`pip install "afisp[torch]"`) is only needed for the
+`torch_roc_auc_surrogate` loss in `afisp.utils`.
 
-```
-Rscript install_R_packages.R
-```
-
-The code can now be run when the 'afisp' conda environment is activated.
+Run the test suite with `pytest`.
 
 
 # Repo Organization

@@ -5,3 +5,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
+### Packaging / docs build artifacts ###
+docs/_build/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
