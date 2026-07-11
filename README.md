@@ -1,5 +1,9 @@
 # AFISP: Software to identify patient characteristics and data acquisition parameters associated with high error rates in predictive AI/ML models
 
+[![PyPI version](https://img.shields.io/pypi/v/afisp.svg)](https://pypi.org/project/afisp/)
+[![Tests](https://github.com/asubbaswamy/AFISP/actions/workflows/tests.yml/badge.svg)](https://github.com/asubbaswamy/AFISP/actions/workflows/tests.yml)
+[![Python versions](https://img.shields.io/pypi/pyversions/afisp.svg)](https://pypi.org/project/afisp/)
+
 This repository contains code for the Regulatory Science Tool titled AFISP. The tool allows users to probe a trained machine learning (ML) or AI model for subgroups on which it underperforms.
 
 Full documentation can be viewed at [https://afisp.readthedocs.io/](https://afisp.readthedocs.io/).
