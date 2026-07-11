@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 from sklearn.metrics import roc_auc_score
         
                 
@@ -142,7 +141,8 @@ def torch_roc_auc_surrogate(y, y_pred, surrogate='xent'):
         loss surrogate.
     :return: Array of samplewise surrogate AUROC losses.
     """
-    
+    import torch  # optional dependency; only needed for this surrogate loss
+
     y_torch = torch.tensor(y)
     logits_torch = torch.tensor(logit(y_pred))
     

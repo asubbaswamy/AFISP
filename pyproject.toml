@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "afisp"
+version = "0.2.0"
+description = "Identify patient characteristics and data acquisition parameters associated with high error rates in predictive AI/ML models."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Adarsh Subbaswamy", email = "asubbaswamy@users.noreply.github.com" }]
+keywords = ["machine learning", "subgroup analysis", "model evaluation", "interpretability", "SIRUS"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "statsmodels",
+    "tqdm",
+    "matplotlib",
+    "interpret",
+    "imodels",
+    "sirus",
+]
+
+[project.optional-dependencies]
+torch = ["torch"]
+test = ["pytest"]
+docs = ["sphinx==7.2.6", "sphinx-rtd-theme==2.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/asubbaswamy/AFISP"
+Documentation = "https://afisp.readthedocs.io/"
+
+[tool.setuptools.packages.find]
+include = ["afisp*"]
