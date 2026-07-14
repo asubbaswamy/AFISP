@@ -16,7 +16,7 @@ autodoc_mock_imports = ["numpy", "sklearn", "tqdm", "interpret", "matplotlib",
 project = 'AFISP'
 copyright = '2024, Adarsh Subbaswamy'
 author = 'Adarsh Subbaswamy'
-release = '0.2.0'
+release = '0.2.1'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

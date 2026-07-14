@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.1
+
+Metadata-only release. No functional changes to the package.
+
+### Changed
+- Removed the author email address from the package metadata. Use the
+  [issue tracker](https://github.com/asubbaswamy/AFISP/issues) to get in touch.
+
+### Removed
+- The 0.2.0 release was deleted from PyPI because its metadata could not be
+  edited in place. Install `afisp>=0.2.1`; it is functionally identical to 0.2.0.
+
 ## 0.2.0
 
 AFISP is now a pure-Python, pip-installable package. **R is no longer required.**
